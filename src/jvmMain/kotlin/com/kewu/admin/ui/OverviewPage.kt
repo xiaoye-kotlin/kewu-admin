@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.Assignment
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Class
 import androidx.compose.material.icons.outlined.Computer
+import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Mic
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,9 +49,11 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 @Composable
-fun OverviewPage(api: AdminApi) {
+fun OverviewPage(api: AdminApi, onDeploy: () -> Unit) {
     var overview by remember { mutableStateOf<JsonObject?>(null) }
     var health by remember { mutableStateOf<JsonObject?>(null) }
+    var obsRecordingCount by remember { mutableStateOf(0) }
+    var obsError by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var refreshedAt by remember { mutableStateOf("—") }
@@ -61,6 +65,13 @@ fun OverviewPage(api: AdminApi) {
         try {
             overview = api.overview()
             health = api.health()
+            runCatching { api.obsRecordings().size }.onSuccess {
+                obsRecordingCount = it
+                obsError = null
+            }.onFailure {
+                obsRecordingCount = 0
+                obsError = it.message
+            }
             refreshedAt = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
         } catch (e: Exception) {
             error = e.message ?: "加载失败"
@@ -78,6 +89,11 @@ fun OverviewPage(api: AdminApi) {
 
     Column(Modifier.fillMaxSize()) {
         PageHeader("运行概览", "平台数据与服务器组件状态，每 30 秒自动刷新") {
+            OutlinedButton(onClick = onDeploy) {
+                Icon(Icons.Outlined.CloudUpload, null)
+                Spacer(Modifier.width(6.dp))
+                Text("一键部署")
+            }
             Text("上次刷新 $refreshedAt", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterVertically))
             Button(onClick = { scope.launch { refresh() } }, enabled = !loading) {
                 Icon(Icons.Outlined.Refresh, null)
@@ -98,7 +114,14 @@ fun OverviewPage(api: AdminApi) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             MetricCard("平台用户", formatCount(data.long("userCount")), "学生 / 教师 / 管理员", Icons.Outlined.Group, Modifier.weight(1f))
             MetricCard("课程与班级", "${data.long("courseCount")} / ${data.long("classCount")}", "课程数 / 班级数", Icons.Outlined.Class, Modifier.weight(1f), KewuGreen)
-            MetricCard("录音资源", formatCount(data.long("recordingCount")), "已落库且未删除", Icons.Outlined.Mic, Modifier.weight(1f), AdminAmber)
+            MetricCard(
+                "录音资源",
+                formatCount(maxOf(data.long("recordingCount"), obsRecordingCount.toLong())),
+                "数据库 ${data.long("recordingCount")} / OBS 对象 $obsRecordingCount",
+                Icons.Outlined.Mic,
+                Modifier.weight(1f),
+                AdminAmber,
+            )
             MetricCard("录音存储", formatBytes(data.long("recordingBytes")), "OBS 对象总容量", Icons.Outlined.Storage, Modifier.weight(1f), KewuDeepBlue)
         }
         Spacer(Modifier.height(14.dp))
@@ -148,6 +171,9 @@ fun OverviewPage(api: AdminApi) {
         }
         if (error != null) {
             Text("自动刷新失败：$error（将保留上次数据并重试）", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 10.dp))
+        }
+        obsError?.let {
+            Text("OBS 录音数读取失败：$it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

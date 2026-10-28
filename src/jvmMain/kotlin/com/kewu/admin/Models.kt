@@ -9,9 +9,15 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
+import java.io.StringReader
+import java.net.URLEncoder
 import java.text.NumberFormat
 import java.util.Locale
+import javax.xml.parsers.DocumentBuilderFactory
+import org.xml.sax.InputSource
 
 val AdminJson: Json = Json {
     ignoreUnknownKeys = true
@@ -98,3 +104,53 @@ data class AdminSession(
     val username: String,
     val nickname: String,
 )
+
+data class ObsListingPage(
+    val items: List<JsonObject>,
+    val truncated: Boolean,
+    val nextMarker: String,
+)
+
+/** 解析 OBS ListBucketResult XML。当前桶策略允许匿名读/列录音对象，无需把 AK/SK 放进总控端。 */
+fun parseObsListing(xml: String, bucketUrl: String): ObsListingPage {
+    return try {
+        val factory = DocumentBuilderFactory.newInstance().apply {
+            isXIncludeAware = false
+            isExpandEntityReferences = false
+        }
+        val document = factory.newDocumentBuilder().parse(InputSource(StringReader(xml)))
+        val contents = document.getElementsByTagName("Contents")
+        val items = (0 until contents.length).mapNotNull { index ->
+            val node = contents.item(index) as? org.w3c.dom.Element ?: return@mapNotNull null
+            val key = node.getElementsByTagName("Key").item(0)?.textContent.orEmpty()
+            if (key.isBlank()) return@mapNotNull null
+            val id = key.substringAfterLast('/').substringBeforeLast('.')
+            val lastModified = node.getElementsByTagName("LastModified").item(0)?.textContent.orEmpty()
+            val size = node.getElementsByTagName("Size").item(0)?.textContent?.toLongOrNull() ?: 0L
+            val format = key.substringAfterLast('.', "")
+            buildJsonObject {
+                put("id", id)
+                put("obsKey", key)
+                put("url", obsObjectUrl(bucketUrl, key))
+                put("sizeBytes", size)
+                put("lastModified", lastModified)
+                put("createdAt", lastModified)
+                put("format", format)
+                put("source", "OBS")
+            }
+        }
+        val truncated = document.getElementsByTagName("IsTruncated").item(0)?.textContent.equals("true", true)
+        val next = document.getElementsByTagName("NextMarker").item(0)?.textContent.orEmpty()
+        ObsListingPage(items, truncated, next)
+    } catch (e: Exception) {
+        throw AdminApiException("OBS 录音列表解析失败，请稍后重试")
+    }
+}
+
+private fun obsObjectUrl(bucketUrl: String, key: String): String {
+    val base = bucketUrl.trim().removeSuffix("/")
+    val encodedKey = key.split('/').joinToString("/") {
+        URLEncoder.encode(it, Charsets.UTF_8).replace("+", "%20")
+    }
+    return "$base/$encodedKey"
+}

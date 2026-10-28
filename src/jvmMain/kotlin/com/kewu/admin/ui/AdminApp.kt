@@ -60,11 +60,19 @@ enum class AdminSection(val title: String, val icon: ImageVector) {
 @Composable
 fun AdminApp() {
     val api = remember { AdminApi() }
+    var deployPromptCompleted by remember { mutableStateOf(false) }
     var session by remember { mutableStateOf<AdminSession?>(null) }
     var section by remember { mutableStateOf(AdminSection.OVERVIEW) }
+    var showDeployment by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     DisposableEffect(Unit) { onDispose { api.close() } }
+
+    // 启动时先询问是否从 GitHub 一键部署后端；部署完成或明确跳过后才进入登录/管理界面。
+    if (!deployPromptCompleted) {
+        DeploymentGate(onFinished = { deployPromptCompleted = true })
+        return
+    }
 
     val currentSession = session
     if (currentSession == null) {
@@ -129,12 +137,15 @@ fun AdminApp() {
             Box(Modifier.weight(1f).fillMaxHeight().padding(28.dp)) {
                 val notify: (String) -> Unit = { message -> scope.launch { snackbar.showSnackbar(message) } }
                 when (section) {
-                    AdminSection.OVERVIEW -> OverviewPage(api)
+                    AdminSection.OVERVIEW -> OverviewPage(api, onDeploy = { showDeployment = true })
                     AdminSection.USERS -> UsersPage(api, notify)
                     AdminSection.RECORDINGS -> RecordingsPage(api, notify)
                     AdminSection.COURSES -> CoursesPage(api, notify)
                     AdminSection.ASSIGNMENTS -> AssignmentsPage(api, notify)
                     AdminSection.ATTENDANCE -> AttendancePage(api, notify)
+                }
+                if (showDeployment) {
+                    DeploymentDialog(onClose = { showDeployment = false })
                 }
             }
         }

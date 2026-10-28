@@ -40,6 +40,10 @@ class AdminApi(
 
     private var bearerToken: String? = null
 
+    private val obsBucketUrl: String = System.getProperty("KEWU_OBS_BUCKET_URL")
+        ?: System.getenv("KEWU_OBS_BUCKET_URL")
+        ?: "https://kewu2.obs.cn-north-4.myhuaweicloud.com"
+
     suspend fun login(username: String, password: String): AdminSession {
         val data = request(
             path = "/api/user/login",
@@ -71,6 +75,33 @@ class AdminApi(
 
     suspend fun overview(): JsonObject = getData("/api/admin/overview").objOrThrow("概览响应格式异常")
     suspend fun health(): JsonObject = getData("/api/admin/system/health").objOrThrow("健康响应格式异常")
+
+    /**
+     * 直接分页读取 OBS 桶对象，补齐后端 recordings 表尚未落库的历史录音。
+     * 当前桶策略允许匿名列举 recordings/ 前缀；若日后收紧，需要后端提供签名列表接口。
+     */
+    suspend fun obsRecordings(prefix: String = "recordings/"): List<JsonObject> {
+        val all = mutableListOf<JsonObject>()
+        var marker: String? = null
+        var guard = 0
+        while (guard++ < 20) {
+            val response = client.request(obsBucketUrl) {
+                method = HttpMethod.Get
+                parameter("prefix", prefix)
+                parameter("max-keys", "1000")
+                if (!marker.isNullOrBlank()) parameter("marker", marker)
+            }
+            val text = response.bodyAsText()
+            if (response.status.value >= 400) {
+                throw AdminApiException("OBS 录音列表读取失败（HTTP ${response.status.value}）")
+            }
+            val page = parseObsListing(text, obsBucketUrl)
+            all += page.items
+            if (!page.truncated || page.nextMarker.isBlank()) break
+            marker = page.nextMarker
+        }
+        return all
+    }
 
     suspend fun page(path: String, params: Map<String, String?> = emptyMap()): PageResult {
         val data = getData(path, params).objOrThrow("分页响应格式异常")
