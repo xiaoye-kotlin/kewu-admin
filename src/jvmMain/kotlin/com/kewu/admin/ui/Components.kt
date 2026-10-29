@@ -25,8 +25,6 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -35,7 +33,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,6 +48,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.suqi8.coui.kmp.basic.Card
+import io.github.suqi8.coui.kmp.basic.CardColors
+import io.github.suqi8.coui.kmp.basic.TextField
+import io.github.suqi8.coui.kmp.basic.TextFieldDefaults
+import io.github.suqi8.coui.kmp.basic.TextFieldMode
+import io.github.suqi8.coui.kmp.theme.COUITheme
 
 @Composable
 fun PageHeader(
@@ -77,12 +80,16 @@ fun PageHeader(
 
 @Composable
 fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    // coui 原生 squircle 白卡：与学生端 / 教师端的内容卡观感一致。
+    val cs = COUITheme.colorScheme
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        cornerRadius = 20.dp,
+        colors = CardColors(
+            color = cs.surfaceContainer,
+            contentColor = cs.onSurface,
+            pressedColor = cs.tertiaryContainer,
+        ),
         content = content,
     )
 }
@@ -215,13 +222,16 @@ fun ErrorBlock(message: String, onRetry: () -> Unit) {
 
 @Composable
 fun SearchField(value: String, onValueChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
-    OutlinedTextField(
+    val cs = COUITheme.colorScheme
+    TextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier.height(52.dp),
-        placeholder = { Text(placeholder) },
+        backgroundMode = TextFieldMode.Rectangle,
+        colors = TextFieldDefaults.textFieldColors(backgroundColor = cs.surfaceContainer),
+        label = placeholder,
+        useLabelAsPlaceholder = true,
         singleLine = true,
-        shape = RoundedCornerShape(12.dp),
     )
 }
 

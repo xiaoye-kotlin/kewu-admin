@@ -37,6 +37,12 @@ kotlin {
                 implementation("io.ktor:ktor-client-core:2.3.12")
                 implementation("io.ktor:ktor-client-okhttp:2.3.12")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+                // 与学生端 / 教师端完全一致的 coui 视觉体系。
+                implementation("io.github.suqi8.coui.kmp:coui-blur:1.1.0")
+                implementation("io.github.suqi8.coui.kmp:coui-ui:1.1.0")
+                implementation("io.github.suqi8.coui.kmp:coui-preference:1.1.0")
+                implementation("io.github.suqi8.coui.kmp:coui-icons:1.1.0")
+                implementation("androidx.navigationevent:navigationevent-compose:1.1.2")
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.kewu.admin.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +21,6 @@ import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,26 +38,41 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kewu.admin.DeploymentService
+import io.github.suqi8.coui.kmp.blur.layerBackdrop
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** 应用启动时的部署入口：用户确认后才进入管理界面。 */
 @Composable
 fun DeploymentGate(onFinished: () -> Unit) {
-    Box(
-        Modifier.fillMaxSize().background(Brush.linearGradient(listOf(KewuDeepBlue, KewuBlue, Color(0xFF0E7E9B)))),
-        contentAlignment = Alignment.Center,
-    ) {
-        Card(
-            modifier = Modifier.width(860.dp).heightIn(max = 760.dp),
-            shape = RoundedCornerShape(26.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 18.dp),
+    val cs = COUITheme.colorScheme
+    val backdrop = rememberAdminGlassBackdrop()
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .layerBackdrop(backdrop)
+                .background(cs.surface)
+                .drawBehind {
+                    val w = this.size.width
+                    val h = this.size.height
+                    val minD = minOf(w, h)
+                    drawCircle(KewuBlue.copy(alpha = 0.15f), minD * 0.45f, Offset(w * 0.12f, h * 0.18f))
+                    drawCircle(KewuGreen.copy(alpha = 0.13f), minD * 0.40f, Offset(w * 0.90f, h * 0.78f))
+                },
+        )
+        AdminGlassCard(
+            backdrop = backdrop,
+            modifier = Modifier.width(880.dp).heightIn(max = 760.dp).align(Alignment.Center),
+            shape = RoundedCornerShape(30.dp),
+            blurRadius = 28.dp,
+            tintAlpha = 0.44f,
         ) {
             DeploymentContent(
                 compact = false,
